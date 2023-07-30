@@ -9,29 +9,33 @@ import com.yupi.springbootinit.common.DeleteRequest;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.CommonConstant;
+import com.yupi.springbootinit.constant.FileConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
-import com.yupi.springbootinit.model.dto.chart.ChartAddRequest;
-import com.yupi.springbootinit.model.dto.chart.ChartEditRequest;
-import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
-import com.yupi.springbootinit.model.dto.chart.ChartUpdateRequest;
+import com.yupi.springbootinit.model.dto.chart.*;
+import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
 import com.yupi.springbootinit.model.dto.post.PostQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.Post;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
 import java.util.List;
 
 /**
@@ -229,6 +233,7 @@ public class ChartController {
 
 
         Long id = chartQueryRequest.getId();
+        String name = chartQueryRequest.getName();
         String goal = chartQueryRequest.getGoal();
         String chartType = chartQueryRequest.getChartType();
         Long userId = chartQueryRequest.getUserId();
@@ -238,6 +243,7 @@ public class ChartController {
         String sortOrder = chartQueryRequest.getSortOrder();
 
         queryWrapper.eq(id != null && id > 0, "id", id);
+        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
         queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
         queryWrapper.eq(userId != null && userId > 0, "userId", userId);
@@ -245,6 +251,65 @@ public class ChartController {
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+
+    /**
+     * 文件上传
+     *
+     * @param multipartFile
+     * @param genChartRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/genChart")
+    public BaseResponse<String> genChart(@RequestPart("file") MultipartFile multipartFile,
+                                         GenChartRequest genChartRequest, HttpServletRequest request) {
+        String name = genChartRequest.getName();
+        String goal = genChartRequest.getGoal();
+        String chartType = genChartRequest.getChartType();
+
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR, "图表类型为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
+
+        /**
+         * AI 提词技巧
+         * 1. 持续输入，持续优化
+         * 2. 数据压缩（内容关键词提取），因为 AI 接口的输入长度是有限制的，压缩后能传递更多的数据
+         *   比如：要让 AI 根据几行数据分析结果
+         *     日期：1号，人数 10 人
+         *     日期：2号，人数 20 人
+         *     日期：3号，人数 30 人
+         *   可以压缩成，日期 1-3 号，人数 10、20、30
+         */
+
+        // 读取用户上传的文件，处理数据，使用 csv 对 excel 数据进行压缩
+        String data = ExcelUtils.excel2csv(multipartFile);
+        return ResultUtils.success(data);
+
+//        User loginUser = userService.getLoginUser(request);
+//        // 文件目录：根据业务、用户来划分
+//        String uuid = RandomStringUtils.randomAlphanumeric(8);
+//        String filename = uuid + "-" + multipartFile.getOriginalFilename();
+//        File file = null;
+//        try {
+//            return ResultUtils.success("");
+//            // 上传文件
+//            // 返回可访问地址
+////            return ResultUtils.success(FileConstant.COS_HOST + filepath);
+//        } catch (Exception e) {
+////            log.error("file upload error, filepath = " + filepath, e);
+//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
+//        } finally {
+//            if (file != null) {
+//                // 删除临时文件
+//                boolean delete = file.delete();
+//                if (!delete) {
+////                    log.error("file delete error, filepath = {}", filepath);
+//                }
+//            }
+//        }
     }
 
 }
